@@ -1,21 +1,34 @@
-// chrome.runtime.onInstalled.addListener(async () => {
-//   await chrome.tabs.query({}, (tabs) => {
-//     console.log(tabs);
-//     const yttabs = tabs.filter((tab) => /www\.youtube\.com/.test(tab.url));
-//     console.log(yttabs);
-//   });
-// });
+let activeAudioTabInfo = {
+  id: null,
+  title: null,
+  url: null,
+};
 
-let activeAudioTabId;
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!activeAudioTabInfo.id || tabId !== activeAudioTabInfo.id) return;
+  if (!changeInfo.url && !changeInfo.title) return;
+
+  if (activeAudioTabInfo.url !== tab.url) {
+    activeAudioTabInfo.url = tab.url;
+  }
+
+  if (activeAudioTabInfo.title !== tab.title) {
+    activeAudioTabInfo.title = tab.title;
+  }
+  console.log(activeAudioTabInfo);
+});
 
 chrome.webNavigation.onCompleted.addListener(
   async (e) => {
     const yttab = await chrome.tabs.get(e.tabId);
     console.log(yttab);
     if (yttab.audible || !yttab.mutedInfo.muted) {
-      activeAudioTabId = yttab.id;
+      activeAudioTabInfo = {
+        id: yttab.id,
+        title: yttab.title,
+        url: yttab.url,
+      };
     }
-    console.log(activeAudioTabId);
   },
   // prettier-ignore
   { url: [{ urlMatches: "www\.youtube\.com\/watch" }] }
