@@ -18,17 +18,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message === "start-ws" && !websocket) {
     wsConnect(wsUrl);
-    console.log("opening websocket");
     sendResponse();
-    chrome.runtime.sendMessage("websocket-is-open", () => {});
     return;
   }
 
   if (message === "stop-ws" && websocket) {
     websocket.close();
-    console.log("closing websocket");
     sendResponse();
-    chrome.runtime.sendMessage("websocket-is-closed", () => {});
   }
 });
 
@@ -43,11 +39,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     url: tab.url,
   };
 
-  const titleToSend = tab.title.replace(" - YouTube", "").trim();
-
-  websocket.send(titleToSend);
-
-  console.log(titleToSend);
+  if (websocket) {
+    const titleToSend = tab.title.replace(" - YouTube", "").trim();
+    sendTextToDisplay(titleToSend);
+  }
 });
 
 chrome.webNavigation.onCompleted.addListener(
@@ -60,22 +55,35 @@ chrome.webNavigation.onCompleted.addListener(
         title: yttab.title,
         url: yttab.url,
       };
+
+      if (websocket) {
+        const titleToSend = yttab.title.replace(" - YouTube", "").trim();
+        sendTextToDisplay(titleToSend);
+      }
     }
   },
   // prettier-ignore
   { url: [{ urlMatches: "www\.youtube\.com\/watch" }] }
 );
 
+const sendTextToDisplay = (text) => {
+  console.log({ text });
+  websocket.send(text);
+};
+
 const wsConnect = (url) => {
   websocket = new WebSocket(url);
 
   websocket.onopen = () => {
+    chrome.runtime.sendMessage("websocket-is-open", () => {});
     chrome.alarms.create("keep-alive-ws", { delayInMinutes: 3 });
     console.log("Connected");
   };
 
   websocket.onclose = () => {
-    chrome.alarm.clear("keep-alive-ws", () => console.log("timer cleared"));
+    websocket = null;
+    chrome.runtime.sendMessage("websocket-is-closed", () => {});
+    chrome.alarms.clear("keep-alive-ws", () => console.log("timer cleared"));
     console.log("Disconnected");
   };
 
