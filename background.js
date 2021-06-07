@@ -6,6 +6,13 @@ let activeAudioTabInfo = {
   url: null,
 };
 
+/**
+ * Since service workers will be unloaded after a short period of
+ * idle time, we need a way to keep them active in order to keep
+ * the websocket connection alive
+ * In this case we use an alarm that fires before the service worker
+ * gets unloaded
+ */
 chrome.alarms.onAlarm.addListener(() => {
   console.log("keep alive ws");
 });
@@ -28,9 +35,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// when a tab gets updated
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  /**
+   * There is currently no way to add a listener for a specific tab
+   * so this is used as a filter
+   */
   if (!activeAudioTabInfo.id || tabId !== activeAudioTabInfo.id) return;
-  // when the title changes the new url will be already set
+
+  /**
+   * We need to know the new url and the new title of the tab
+   * When the title changes, the new url is already set
+   * so we only wait for the title to change
+   */
   if (!changeInfo.title) return;
 
   activeAudioTabInfo = {
@@ -45,10 +62,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+// when user opens a tab with the youtube url
 chrome.webNavigation.onCompleted.addListener(
   async (e) => {
     const yttab = await chrome.tabs.get(e.tabId);
-    console.log(yttab);
     if (yttab.audible || !yttab.mutedInfo.muted) {
       activeAudioTabInfo = {
         id: yttab.id,
