@@ -1,4 +1,4 @@
-const wsUrl = "ws://192.168.0.7/text";
+const wsUrl = "ws://192.168.0.10/text";
 let websocket;
 let activeAudioTabInfo = {
   id: null,
@@ -6,20 +6,30 @@ let activeAudioTabInfo = {
   url: null,
 };
 
+chrome.alarms.onAlarm.addListener(() => {
+  console.log("keep alive ws");
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message === "start-ws" /*&& !websocket*/) {
-    // wsConnect(wsUrl);
+  if (message === "get-ws-status") {
+    sendResponse(!!websocket);
+    return;
+  }
+
+  if (message === "start-ws" && !websocket) {
+    wsConnect(wsUrl);
     console.log("opening websocket");
-    chrome.runtime.sendMessage("websocket-is-open", (res) => {});
+    sendResponse();
+    chrome.runtime.sendMessage("websocket-is-open", () => {});
+    return;
   }
 
-  if (message === "stop-ws" /*&& websocket*/) {
-    // websocket.close();
+  if (message === "stop-ws" && websocket) {
+    websocket.close();
     console.log("closing websocket");
-    chrome.runtime.sendMessage("websocket-is-closed", (res) => {});
+    sendResponse();
+    chrome.runtime.sendMessage("websocket-is-closed", () => {});
   }
-
-  sendResponse();
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -33,9 +43,11 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     url: tab.url,
   };
 
-  websocket.send(tab.title.replace(" - YouTube", "").trim());
+  const titleToSend = tab.title.replace(" - YouTube", "").trim();
 
-  console.log(activeAudioTabInfo);
+  websocket.send(titleToSend);
+
+  console.log(titleToSend);
 });
 
 chrome.webNavigation.onCompleted.addListener(
@@ -58,10 +70,12 @@ const wsConnect = (url) => {
   websocket = new WebSocket(url);
 
   websocket.onopen = () => {
+    chrome.alarms.create("keep-alive-ws", { delayInMinutes: 3 });
     console.log("Connected");
   };
 
   websocket.onclose = () => {
+    chrome.alarm.clear("keep-alive-ws", () => console.log("timer cleared"));
     console.log("Disconnected");
   };
 

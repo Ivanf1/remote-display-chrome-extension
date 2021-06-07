@@ -18,6 +18,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 window.addEventListener("DOMContentLoaded", async () => {
   toggleWsConnectionBtn = document.getElementById("ws_connect_btn");
 
+  chrome.runtime.sendMessage("get-ws-status", (res) => {
+    isWsOpen = res;
+    toggleWsConnectionBtn.innerHTML = isWsOpen ? "disconnect" : "connect";
+  });
+
   toggleWsConnectionBtn.addEventListener("click", async () => {
     chrome.runtime.sendMessage(isWsOpen ? "stop-ws" : "start-ws", (res) => {});
   });
